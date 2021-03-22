@@ -7,20 +7,29 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.stereotype.Controller;
-import ru.marsel.wschat.dto.Message;
+import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
+import org.springframework.web.bind.annotation.RestController;
+import ru.marsel.wschat.config.oauth.CustomPrincipal;
 import ru.marsel.wschat.dto.MetaDto;
+import ru.marsel.wschat.model.Message;
+import ru.marsel.wschat.service.ChatService;
+import ru.marsel.wschat.service.MessageService;
 
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Controller
+@RestController
 @RequiredArgsConstructor
 @Slf4j
 public class WebsocketController {
+    private final ChatService chatService;
+    private final MessageService messageService;
+    private final ResourceServerTokenServices tokenService;
+
     private static String URL_PATTERN = "https?:\\/\\/?[\\w\\d\\._\\-%\\/\\?=&#]+";
     private static String IMAGE_PATTERN = "\\.(jpeg|jpg|gif|png)$";
 
@@ -29,13 +38,18 @@ public class WebsocketController {
 
     @MessageMapping("/send/{id}")
     @SendTo("/topic/chat/{id}")
-    public Message greeting(@DestinationVariable Long id, Message message) {
+    public Message sendMessage(@DestinationVariable Long id, Message message, @Header(name="Authorization") String token) {
+        CustomPrincipal principal = (CustomPrincipal) tokenService.loadAuthentication(token).getUserAuthentication().getPrincipal();
+        message.setOwnerId(principal.getId());
+        message.setOwnerName(principal.getName());
+        message.setChat(chatService.getChat(id));
+        messageService.save(message);
         fillMeta(message);
         return message;
     }
 
 
-    private void fillMeta(Message message) {
+    public static void fillMeta(Message message) {
         String text = message.getMessage();
         Matcher matcher = URL_REGEX.matcher(text);
 
@@ -59,7 +73,7 @@ public class WebsocketController {
         }
     }
 
-    private MetaDto getMeta(String url) {
+    private static MetaDto getMeta(String url) {
         try {
             Document document = Jsoup.connect(url).get();
 
@@ -79,7 +93,7 @@ public class WebsocketController {
 
     }
 
-    private String getContent(Element element) {
+    private static String getContent(Element element) {
         return element == null ? "" : element.attr("content");
     }
 }

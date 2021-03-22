@@ -3,7 +3,7 @@ package ru.marsel.wschat.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.marsel.wschat.dto.Message;
+import ru.marsel.wschat.model.Message;
 
 import java.util.ArrayList;
 import java.util.List;

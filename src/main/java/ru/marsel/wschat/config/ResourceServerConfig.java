@@ -12,23 +12,45 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.E
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
-import ru.marsel.wschat.config.oauth.AccessTokenValidator;
-import ru.marsel.wschat.config.oauth.GoogleAccessTokenValidator;
-import ru.marsel.wschat.config.oauth.GoogleTokenService;
+import ru.marsel.wschat.config.oauth.TokenService;
 
 @Configuration
 @EnableResourceServer
 @EnableWebSecurity
 public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-    @Bean
+    @Bean(name = "googleClient")
     @ConfigurationProperties("google.client")
     public AuthorizationCodeResourceDetails google() {
         return new AuthorizationCodeResourceDetails();
     }
 
-    @Bean
+    @Bean(name = "googleResource")
     @ConfigurationProperties("google.resource")
     public ResourceServerProperties googleResource() {
+        return new ResourceServerProperties();
+    }
+
+    @Bean(name = "githubClient")
+    @ConfigurationProperties("github.client")
+    public AuthorizationCodeResourceDetails github() {
+        return new AuthorizationCodeResourceDetails();
+    }
+
+    @Bean(name = "githubResource")
+    @ConfigurationProperties("github.resource")
+    public ResourceServerProperties githubResource() {
+        return new ResourceServerProperties();
+    }
+
+    @Bean(name = "yandexClient")
+    @ConfigurationProperties("yandex.client")
+    public AuthorizationCodeResourceDetails yandex() {
+        return new AuthorizationCodeResourceDetails();
+    }
+
+    @Bean(name = "yandexResource")
+    @ConfigurationProperties("yandex.resource")
+    public ResourceServerProperties yandexResource() {
         return new ResourceServerProperties();
     }
 
@@ -36,29 +58,20 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
     public void configure(HttpSecurity http) throws Exception {
         http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
         http.cors().and().authorizeRequests()
-                .antMatchers("/", "/login").permitAll()
+                .antMatchers("/", "/login", "/connect/**").permitAll()
                 .anyRequest().authenticated();
 
     }
 
     @Override
-    public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
+    public void configure(ResourceServerSecurityConfigurer resources) {
         resources.resourceId(google().getClientId());
-    }
-
-
-    @Bean
-    public ResourceServerTokenServices tokenServices(AccessTokenValidator tokenValidator) {
-        GoogleTokenService googleTokenServices = new GoogleTokenService(tokenValidator);
-        googleTokenServices.setUserInfoUrl(googleResource().getUserInfoUri());
-        return googleTokenServices;
+        resources.resourceId(github().getClientId());
+        resources.resourceId(yandex().getClientId());
     }
 
     @Bean
-    public AccessTokenValidator tokenValidator() {
-        GoogleAccessTokenValidator accessTokenValidator = new GoogleAccessTokenValidator();
-        accessTokenValidator.setClientId(google().getClientId());
-        accessTokenValidator.setCheckTokenUrl(googleResource().getTokenInfoUri());
-        return accessTokenValidator;
+    public ResourceServerTokenServices tokenServices() {
+        return new TokenService(google(), github(), yandex());
     }
 }
